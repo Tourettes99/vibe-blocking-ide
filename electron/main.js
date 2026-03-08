@@ -95,16 +95,48 @@ ipcMain.on('window-maximize', () => {
 ipcMain.on('window-close', () => mainWindow?.close());
 
 // File System IPC
-ipcMain.handle('save-project', async (event, { projectName, appType, vibeBlocks, generatedFiles }) => {
+function isScaffoldCommandAllowed(cmd) {
+  const c = (cmd || '').trim().toLowerCase();
+  if (!c) return false;
+  const allowed = [
+    /^npm\s+create\b/,
+    /^npx\s+create\b/,
+    /^npx\s+create-/,
+    /^mkdir\b/,
+  ];
+  return allowed.some((r) => r.test(c));
+}
+
+ipcMain.handle('save-project', async (event, { projectName, appType, vibeBlocks, generatedFiles, projectStructure, scaffoldCommand }) => {
   try {
     const defaultDrive = app.getPath('documents');
     const projectDir = path.join(defaultDrive, 'VibeApps', projectName || 'UntitledApp');
 
     await fs.mkdir(projectDir, { recursive: true });
 
+    if (scaffoldCommand && isScaffoldCommandAllowed(scaffoldCommand)) {
+      try {
+        const parts = scaffoldCommand.trim().split(/\s+/);
+        if (parts[0].toLowerCase() === 'mkdir') {
+          const dashP = parts[1] === '-p';
+          const dirs = dashP ? parts.slice(2) : parts.slice(1);
+          for (const d of dirs) {
+            if (d) {
+              const full = path.join(projectDir, d.replace(/\//g, path.sep));
+              await fs.mkdir(full, { recursive: true });
+            }
+          }
+        } else {
+          await execPromise(scaffoldCommand, { cwd: projectDir, timeout: 120000, shell: true });
+        }
+      } catch (scaffoldErr) {
+        console.warn('Scaffold command failed:', scaffoldErr.message);
+      }
+    }
+
     await fs.writeFile(
       path.join(projectDir, 'vibe-config.json'),
-      JSON.stringify({ appType, vibeBlocks }, null, 2)
+      JSON.stringify({ appType, vibeBlocks, projectStructure }, null, 2)
     );
 
     if (generatedFiles && Array.isArray(generatedFiles)) {
@@ -172,7 +204,8 @@ ipcMain.handle('load-project', async () => {
         path: projectDir,
         projectName,
         appType: config.appType,
-        vibeBlocks: config.vibeBlocks
+        vibeBlocks: config.vibeBlocks,
+        projectStructure: config.projectStructure
       }
     };
   } catch (err) {

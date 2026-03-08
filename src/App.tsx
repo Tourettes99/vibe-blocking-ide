@@ -33,7 +33,9 @@ import {
   RefreshCw,
   Monitor,
   Key,
-  Save
+  Save,
+  FolderTree,
+  Terminal
 } from 'lucide-react';
 
 interface VibeBlock {
@@ -41,6 +43,51 @@ interface VibeBlock {
   prompt: string;
   editPrompt: string;
 }
+
+interface ProjectStructureItem {
+  id: string;
+  type: 'folder' | 'file';
+  path: string;
+}
+
+const STRUCTURE_PRESETS: { label: string; items: Pick<ProjectStructureItem, 'type' | 'path'>[] }[] = [
+  {
+    label: 'React / Vite',
+    items: [
+      { type: 'folder', path: 'src' },
+      { type: 'folder', path: 'src/components' },
+      { type: 'folder', path: 'src/pages' },
+      { type: 'folder', path: 'src/hooks' },
+      { type: 'folder', path: 'public' },
+      { type: 'file', path: 'package.json' },
+      { type: 'file', path: 'vite.config.js' },
+      { type: 'file', path: '.gitignore' },
+      { type: 'file', path: 'README.md' }
+    ]
+  },
+  {
+    label: 'Node API',
+    items: [
+      { type: 'folder', path: 'src' },
+      { type: 'folder', path: 'src/routes' },
+      { type: 'folder', path: 'src/models' },
+      { type: 'folder', path: 'src/utils' },
+      { type: 'file', path: 'package.json' },
+      { type: 'file', path: '.gitignore' },
+      { type: 'file', path: 'README.md' }
+    ]
+  },
+  {
+    label: 'Static Site',
+    items: [
+      { type: 'folder', path: 'css' },
+      { type: 'folder', path: 'js' },
+      { type: 'folder', path: 'images' },
+      { type: 'file', path: 'index.html' },
+      { type: 'file', path: '.gitignore' }
+    ]
+  }
+];
 
 interface Skill {
   id: string;
@@ -119,6 +166,10 @@ function App() {
   const [blocks, setBlocks] = useState<VibeBlock[]>(
     DESIGN_PHASES.map(phase => ({ id: phase.id, prompt: '', editPrompt: '' }))
   );
+  const [projectStructureItems, setProjectStructureItems] = useState<ProjectStructureItem[]>([]);
+  const [projectStructureDescription, setProjectStructureDescription] = useState('');
+  const [projectStructureScaffold, setProjectStructureScaffold] = useState('');
+  const [projectStructureInput, setProjectStructureInput] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState('MyAwesomeApp');
   const [projectPath, setProjectPath] = useState('');
@@ -796,6 +847,24 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
         }
       }
 
+      if (projectStructureItems.length > 0 || projectStructureDescription.trim() || projectStructureScaffold.trim()) {
+        prompt += `\n## Project Structure (REQUIRED CONTEXT)\n`;
+        if (projectStructureItems.length > 0) {
+          prompt += `The user requires this folder/file structure. Generate code that fits into these paths:\n`;
+          for (const item of projectStructureItems) {
+            prompt += `  - ${item.type === 'folder' ? '📁' : '📄'} ${item.path}\n`;
+          }
+          prompt += `\n`;
+        }
+        if (projectStructureDescription.trim()) {
+          prompt += `User's description: ${projectStructureDescription.trim()}\n\n`;
+        }
+        if (projectStructureScaffold.trim()) {
+          prompt += `Scaffold command (will run first): ${projectStructureScaffold.trim()}\n`;
+          prompt += `If this creates a full project (e.g. create-vite), generate files that extend or customize it. If it only creates folders, generate all code.\n\n`;
+        }
+      }
+
       let skillsList: { name: string; description: string; content: string }[] = [];
       let mcpServers: { name: string; path: string; command: string; description: string; tools: string }[] = [];
 
@@ -945,7 +1014,13 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
           projectName,
           appType,
           vibeBlocks: blocks,
-          generatedFiles
+          generatedFiles,
+          projectStructure: {
+            items: projectStructureItems,
+            description: projectStructureDescription,
+            scaffold: projectStructureScaffold
+          },
+          scaffoldCommand: projectStructureScaffold.trim() || undefined
         });
         if (res.success) {
           setProjectPath(res.path);
@@ -1035,6 +1110,18 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
             setBlocks([...coreBlocks, ...extras]);
           } else {
             setBlocks(DESIGN_PHASES.map(phase => ({ id: phase.id, prompt: '', editPrompt: '' })));
+          }
+          if (res.data.projectStructure) {
+            const ps = res.data.projectStructure as { items?: ProjectStructureItem[]; description?: string; scaffold?: string };
+            if (ps.items && Array.isArray(ps.items)) {
+              setProjectStructureItems(ps.items.map((i) => ({ ...i, id: i.id || `ps-${Date.now()}-${Math.random().toString(36).slice(2)}` })));
+            }
+            setProjectStructureDescription(ps.description || '');
+            setProjectStructureScaffold(ps.scaffold || '');
+          } else {
+            setProjectStructureItems([]);
+            setProjectStructureDescription('');
+            setProjectStructureScaffold('');
           }
           if (res.data.path) {
             loadVersions(res.data.path);
@@ -1226,6 +1313,127 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Project Structure & Folders */}
+              <div className="vibe-block design-phase-card" style={{ '--phase-color': '#0ea5e9' } as React.CSSProperties}>
+                <div className="phase-header">
+                  <div className="phase-icon-wrap" style={{ background: 'rgba(14, 165, 233, 0.18)', color: '#0ea5e9' }}>
+                    <FolderTree size={18} />
+                  </div>
+                  <span className="phase-label" style={{ color: '#0ea5e9' }}>Project Structure &amp; Folders</span>
+                </div>
+                <p className="phase-description">
+                  Define folders and files so your project has proper layout. Gemini uses this as context to place code in the right places. Optional: run a scaffold command first.
+                </p>
+
+                <div className="structure-presets">
+                  <span className="structure-presets-label">Quick add:</span>
+                  {STRUCTURE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                      onClick={() => {
+                        const existing = new Set(projectStructureItems.map((i) => i.path));
+                        const toAdd = preset.items.filter((i) => !existing.has(i.path));
+                        setProjectStructureItems((prev) => [
+                          ...prev,
+                          ...toAdd.map((i) => ({ id: `ps-${Date.now()}-${Math.random().toString(36).slice(2)}`, ...i }))
+                        ]);
+                      }}
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="structure-add-row">
+                  <input
+                    type="text"
+                    className="styled-input"
+                    placeholder="e.g. src/components/Button or package.json"
+                    value={projectStructureInput}
+                    onChange={(e) => setProjectStructureInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const p = projectStructureInput.trim();
+                        if (!p) return;
+                        const hasExt = /\.[a-zA-Z0-9]+$/.test(p);
+                        setProjectStructureItems((prev) => [
+                          ...prev,
+                          { id: `ps-${Date.now()}`, type: hasExt ? 'file' : 'folder', path: p }
+                        ]);
+                        setProjectStructureInput('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => {
+                      const p = projectStructureInput.trim();
+                      if (!p) return;
+                      const hasExt = /\.[a-zA-Z0-9]+$/.test(p);
+                      setProjectStructureItems((prev) => [
+                        ...prev,
+                        { id: `ps-${Date.now()}`, type: hasExt ? 'file' : 'folder', path: p }
+                      ]);
+                      setProjectStructureInput('');
+                    }}
+                  >
+                    <Plus size={16} /> Add
+                  </button>
+                </div>
+
+                {projectStructureItems.length > 0 && (
+                  <div className="structure-tree">
+                    {projectStructureItems.map((item) => (
+                      <div key={item.id} className="structure-tree-item">
+                        <span className="structure-tree-icon">{item.type === 'folder' ? '📁' : '📄'}</span>
+                        <span className="structure-tree-path">{item.path}</span>
+                        <button
+                          type="button"
+                          className="mcp-remove-btn"
+                          onClick={() => setProjectStructureItems((prev) => prev.filter((i) => i.id !== item.id))}
+                          title="Remove"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="input-group" style={{ marginTop: '16px' }}>
+                  <label className="input-label">Describe in your words (optional)</label>
+                  <textarea
+                    className="phase-prompt"
+                    style={{ minHeight: '70px' }}
+                    placeholder="e.g. Proper React app with src/pages, src/components, GitHub-ready .gitignore and README, package.json with build scripts"
+                    value={projectStructureDescription}
+                    onChange={(e) => setProjectStructureDescription(e.target.value)}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">
+                    <Terminal size={14} /> Scaffold command to run first (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="styled-input"
+                    placeholder="e.g. npx create-vite@latest . -- --template react  or  mkdir -p src/components src/utils"
+                    value={projectStructureScaffold}
+                    onChange={(e) => setProjectStructureScaffold(e.target.value)}
+                  />
+                  <div className="structure-scaffold-hint">
+                    Only whitelisted commands run: npm create, npx create, mkdir. Runs in project folder before generation.
+                  </div>
+                </div>
               </div>
 
               <div className="optional-divider">
@@ -1616,6 +1824,7 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
             <div className="action-bar">
               <div className="action-info">
                 6 Phases{blocks.length > 6 ? ` + ${blocks.length - 6} Custom` : ''}
+                {projectStructureItems.length > 0 && <> &middot; <FolderTree size={12} /> Structure</>}
                 {mcpServers.length > 0 && <> &middot; <Plug size={12} /> {mcpServers.length} MCP</>}
                 {skills.length > 0 && <> &middot; <BookOpen size={12} /> {skills.length} Skill{skills.length > 1 ? 's' : ''}</>}
                 {detectedKeys.length > 0 && (

@@ -11,9 +11,9 @@ Whenever a new Electron exe is built (via `npm run build` or electron-builder), 
 
 1. Compress the new exe into a zip using 7-Zip (max compression) and place it in `site/`:
    ```powershell
-   & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=9 "site\Vibe-Blocking-IDE-Setup.zip" "dist-electron\Vibe Blocking IDE Setup 0.1.0.exe"
+   & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=9 "site\Vibe-Blocking-IDE-Setup.zip" "dist-electron\Vibe Blocking IDE Setup 0.2.0.exe"
    ```
-   (Update the version in the filename to match package.json)
+   (Update the version in the filename to match package.json — currently 0.2.0)
 2. The `site/script.js` download link already points to `Vibe-Blocking-IDE-Setup.zip` — no code change needed.
 3. Remind the user to re-upload the `site/` folder to Netlify (or redeploy) to publish the update.
 

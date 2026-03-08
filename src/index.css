@@ -1046,6 +1046,65 @@ input, textarea, select, [contenteditable] {
   word-wrap: break-word;
 }
 
+/* Project Structure block */
+.structure-presets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.structure-presets-label {
+  font-size: 0.78rem;
+  color: var(--color-cream-dark);
+  margin-right: 4px;
+}
+.structure-add-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.structure-add-row .styled-input {
+  flex: 1;
+}
+.structure-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--color-mocha-dark);
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  max-height: 160px;
+  overflow-y: auto;
+}
+.structure-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--color-cream);
+}
+.structure-tree-icon {
+  font-size: 1rem;
+}
+.structure-tree-path {
+  flex: 1;
+  font-family: 'Consolas', 'Fira Code', monospace;
+  font-size: 0.82rem;
+}
+.structure-tree-item .mcp-remove-btn {
+  padding: 4px;
+}
+.structure-scaffold-hint {
+  font-size: 0.72rem;
+  color: var(--color-cream-dark);
+  margin-top: 6px;
+  opacity: 0.8;
+}
+
 /* Project API Keys */
 .keys-badge {
   background: rgba(255, 183, 77, 0.12);
