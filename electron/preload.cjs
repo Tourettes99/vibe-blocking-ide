@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readProjectFiles: (projectPath) => ipcRenderer.invoke('read-project-files', projectPath),
     readAllSkills: () => ipcRenderer.invoke('read-all-skills'),
     readMcpDetails: () => ipcRenderer.invoke('read-mcp-details'),
+    invokeMcpTool: (data) => ipcRenderer.invoke('invoke-mcp-tool', data),
     detectProjectKeys: (projectPath) => ipcRenderer.invoke('detect-project-keys', { projectPath }),
     saveProjectKeys: (projectPath, keys) => ipcRenderer.invoke('save-project-keys', { projectPath, keys }),
     loadProjectKeys: (projectPath) => ipcRenderer.invoke('load-project-keys', { projectPath }),

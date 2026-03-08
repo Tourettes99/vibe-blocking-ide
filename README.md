@@ -118,12 +118,16 @@ Active development. Recent additions:
 - **Version history** — Every build saves a timestamped snapshot under `.vibe-versions/` in the project folder. A version badge in the action bar opens a history panel where you can view and restore any previous build.
 - **Cross-platform** — App launching uses Electron's `shell.openPath()` instead of Windows-specific commands. Path handling is platform-agnostic.
 
+### Recent improvements
+
+- **Structured tool-calling**: Skills accessible via `get_skill(name)`; MCP tools invoked via `call_mcp_tool(server, tool, args)` during generation
+- **React preview**: Preview tab supports React+JSX apps via Babel standalone and CDN React
+- **MCP integration**: Real MCP tool invocations during build — the model can call installed MCP servers for search, fetch, etc.
+
 ### Remaining limitations
 
 - No conversational multi-turn chat (refinement is single-turn against the last output)
-- Preview only works for self-contained HTML/CSS/JS apps (not React/bundled projects)
 - No inline diff view between versions (restore is full-snapshot)
-- Skills are included as raw text in the prompt; no structured tool-call integration yet
 
 ## License
 

@@ -598,28 +598,48 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
 
     const cssFiles = files.filter(f => f.filename.endsWith('.css'));
     const jsFiles = files.filter(f => f.filename.endsWith('.js'));
+    const jsxFiles = files.filter(f => f.filename.endsWith('.jsx'));
+
+    const allScripts = [...jsFiles, ...jsxFiles];
+    const hasReact = allScripts.some(f => /react|jsx|createElement|useState|useEffect/i.test(f.content)) ||
+      html.includes('type="text/babel"') || html.includes('react') || html.includes('jsx');
 
     html = html.replace(/<link[^>]+href=["'][^"']+\.css["'][^>]*\/?>/gi, '');
     html = html.replace(/<script[^>]+src=["'][^"']+["'][^>]*>\s*<\/script>/gi, '');
 
+    const headAdditions: string[] = [];
+    if (hasReact) {
+      headAdditions.push(
+        '<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>',
+        '<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>',
+        '<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>'
+      );
+    }
+
     if (cssFiles.length > 0) {
       const cssBlock = cssFiles.map(f => `<style>\n${f.content}\n</style>`).join('\n');
+      headAdditions.push(cssBlock);
+    }
+
+    if (headAdditions.length > 0) {
+      const block = headAdditions.join('\n');
       if (html.includes('</head>')) {
-        html = html.replace('</head>', `${cssBlock}\n</head>`);
+        html = html.replace('</head>', `${block}\n</head>`);
       } else {
-        html = cssBlock + '\n' + html;
+        html = block + '\n' + html;
       }
     }
 
-    if (jsFiles.length > 0) {
-      const jsBlock = jsFiles.map(f => {
+    if (allScripts.length > 0) {
+      const scriptType = hasReact ? 'text/babel' : 'text/javascript';
+      const scriptsBlock = allScripts.map(f => {
         const safe = f.content.replace(/<\//g, '<\\/');
-        return `<script>\n${safe}\n</script>`;
+        return `<script type="${scriptType}">\n${safe}\n</script>`;
       }).join('\n');
       if (html.includes('</body>')) {
-        html = html.replace('</body>', `${jsBlock}\n</body>`);
+        html = html.replace('</body>', `${scriptsBlock}\n</body>`);
       } else {
-        html = html + '\n' + jsBlock;
+        html = html + '\n' + scriptsBlock;
       }
     }
 
@@ -776,15 +796,16 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
         }
       }
 
+      let skillsList: { name: string; description: string; content: string }[] = [];
+      let mcpServers: { name: string; path: string; command: string; description: string; tools: string }[] = [];
+
       if (api?.readAllSkills) {
         setBuildStatus('Loading skills...');
         const skillsRes = await api.readAllSkills();
         if (skillsRes.success && skillsRes.skills.length > 0) {
           skillsApplied = skillsRes.skills.length;
-          prompt += `\n## Coding Guidelines (from installed Skills — you MUST follow these)\n`;
-          for (const sk of skillsRes.skills) {
-            prompt += `### ${sk.name}\n${sk.content}\n\n`;
-          }
+          skillsList = skillsRes.skills;
+          prompt += `\n## Coding Guidelines\nYou have access to get_skill(skill_name) to fetch full skill content on demand. Available skills: ${skillsList.map(s => s.name).join(', ')}. Call get_skill when you need detailed guidelines.\n`;
         }
       }
 
@@ -793,43 +814,120 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
         const mcpRes = await api.readMcpDetails();
         if (mcpRes.success && mcpRes.servers.length > 0) {
           mcpApplied = mcpRes.servers.length;
-          prompt += `\n## Available MCP Servers\nThe following MCP servers are installed and available. If the app's features can benefit from them, generate code that invokes these tools via their command and stdio transport.\n\n`;
-          for (const srv of mcpRes.servers) {
-            prompt += `### ${srv.name}\n`;
-            if (srv.description) prompt += `Description: ${srv.description}\n`;
-            prompt += `Command: \`${srv.command}\`\n`;
-            if (srv.tools) {
-              prompt += `Tools provided:\n`;
-              for (const line of srv.tools.split('\n')) {
-                prompt += `  - ${line}\n`;
-              }
-            }
-            prompt += '\n';
-          }
+          mcpServers = mcpRes.servers.filter((s: { path?: string }) => s.path);
+          prompt += `\n## MCP Tools\nYou have call_mcp_tool(server_name, tool_name, arguments) to invoke real MCP tools. Available servers: ${mcpServers.map((s: { name: string }) => s.name).join(', ')}. Use it when the app needs external data (search, fetch, etc.).\n`;
         }
       }
 
       setBuildContext({ skills: skillsApplied, mcp: mcpApplied });
       setBuildStatus(isRefine ? 'Sending refinement to Gemini...' : 'Generating with Gemini...');
 
-      prompt += `Please output all code files wrapped in XML-like tags, using the following format exactly:\n<file name="filename.ext">\n...code...\n</file>\nInclude all necessary files (e.g., HTML, CSS, JS, etc.) to make it a fully working app. Do not use markdown blocks around the XML tags.\n\nCRITICAL INSTRUCTIONS:\n1. If generating a Web App, output standard bundled Javascript or Vanilla Web Components. DO NOT output code that requires in-browser Babel compilation (e.g., do not use \`<script type="text/babel">\`). The output must run natively in a modern browser via a standard \`<script>\` or compiled format without relying on runtime transpilation.\n2. The application MUST be highly functional and dynamic. Include robust Javascript logic to handle all user interactions, state changes, and core features described in the blocks. Do NOT create a static mockup.\n3. The UI must be highly aesthetic, modern, and responsive. Use rich color palettes, smooth hover effects, glassmorphism, or modern CSS to make it look premium. Emphasize a "billion-dollar" design feel.\n4. NEVER use HTML or JSX syntax directly inside standard JavaScript (.js) files! If you need to render UI dynamically in Vanilla JS, use standard \`document.createElement\` or template literals assigned to \`innerHTML\`. React code MUST be strictly bundled, otherwise use Vanilla JS to avoid "Uncaught SyntaxError: Unexpected token '<'".\n5. API KEYS: If the application uses ANY external API (e.g., OpenAI, Stripe, Google Maps, Weather, Firebase, Supabase, Twilio, etc.), NEVER hardcode the actual API key. Instead, use the placeholder pattern __VIBE_KEY_<NAME>__ where <NAME> is a descriptive UPPER_SNAKE_CASE identifier. Examples: __VIBE_KEY_OPENAI_API_KEY__, __VIBE_KEY_STRIPE_SECRET_KEY__, __VIBE_KEY_GOOGLE_MAPS_KEY__, __VIBE_KEY_FIREBASE_API_KEY__. The IDE will detect these placeholders and prompt the user to fill in their real keys. Always use this exact pattern with double underscores on each side.`;
+      prompt += `Please output all code files wrapped in XML-like tags, using the following format exactly:\n<file name="filename.ext">\n...code...\n</file>\nInclude all necessary files (e.g., HTML, CSS, JS, JSX, etc.) to make it a fully working app. Do not use markdown blocks around the XML tags.\n\nCRITICAL INSTRUCTIONS:\n1. For Web Apps, you may use vanilla JS, React+JSX, or bundled JS. React+JSX is supported in the IDE preview.\n2. The application MUST be highly functional and dynamic. Include robust logic for user interactions, state, and core features.\n3. The UI must be aesthetic, modern, and responsive. Emphasize a premium design feel.\n4. NEVER use HTML or JSX syntax inside .js files; use .jsx for JSX. Vanilla JS must use createElement or innerHTML.\n5. API KEYS: Use placeholders __VIBE_KEY_<NAME>__ for any external API (e.g. __VIBE_KEY_OPENAI_API_KEY__). Never hardcode keys.\n`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7 }
-        })
-      });
+      const functionDeclarations: object[] = [];
+      if (skillsList.length > 0) {
+        functionDeclarations.push({
+          name: 'get_skill',
+          description: 'Fetch the full content of an installed coding skill by name. Use when you need detailed guidelines.',
+          parameters: {
+            type: 'object',
+            properties: { skill_name: { type: 'string', description: 'Name of the skill (e.g. spec-driven-development)' } },
+            required: ['skill_name']
+          }
+        });
+      }
+      if (mcpServers.length > 0) {
+        functionDeclarations.push({
+          name: 'call_mcp_tool',
+          description: 'Invoke a tool from an installed MCP server. Use when the app needs external data or actions.',
+          parameters: {
+            type: 'object',
+            properties: {
+              server_name: { type: 'string', description: 'MCP server name' },
+              tool_name: { type: 'string', description: 'Tool name' },
+              arguments: { type: 'object', description: 'Tool arguments as JSON object' }
+            },
+            required: ['server_name', 'tool_name']
+          }
+        });
+      }
 
-      if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+      const apiBody: { contents: object[]; generationConfig: object; tools?: object[] } = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7 }
+      };
+      if (functionDeclarations.length > 0) {
+        apiBody.tools = [{ functionDeclarations }];
+      }
+
+      let generatedText = '';
+      let contents = apiBody.contents as { role: string; parts: object[] }[];
+      const maxToolRounds = 10;
+      let round = 0;
+
+      while (round < maxToolRounds) {
+        const body: Record<string, unknown> = { ...apiBody, contents };
+        if (functionDeclarations.length > 0) body.tools = [{ functionDeclarations }];
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+
+        const data = await response.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const textPart = parts.find((p: { text?: string }) => p.text);
+        const fcPart = parts.find((p: { functionCall?: object }) => p.functionCall);
+
+        if (textPart?.text) {
+          generatedText = textPart.text;
+          break;
+        }
+
+        if (fcPart?.functionCall) {
+          const { name, args } = fcPart.functionCall as { name: string; args?: Record<string, unknown> };
+          setBuildStatus(`Tool: ${name}...`);
+          let toolResult: string;
+
+          if (name === 'get_skill') {
+            const skillName = (args?.skill_name as string) || '';
+            const sk = skillsList.find(s => s.name.toLowerCase() === skillName.toLowerCase());
+            toolResult = sk ? sk.content : `Skill '${skillName}' not found. Available: ${skillsList.map(s => s.name).join(', ')}`;
+          } else if (name === 'call_mcp_tool' && api?.invokeMcpTool) {
+            const srvName = (args?.server_name as string) || '';
+            const toolName = (args?.tool_name as string) || '';
+            const srv = mcpServers.find((s: { name: string }) => s.name.toLowerCase().includes(srvName.toLowerCase()));
+            if (!srv?.path) {
+              toolResult = `MCP server '${srvName}' not found.`;
+            } else {
+              const invRes = await api.invokeMcpTool({
+                serverPath: srv.path,
+                serverCommand: srv.command,
+                toolName,
+                args: (args?.arguments as Record<string, unknown>) || {}
+              });
+              toolResult = invRes.success ? String(invRes.result) : `Error: ${invRes.error}`;
+            }
+          } else {
+            toolResult = 'Unknown tool or no handler.';
+          }
+
+          contents = [
+            ...contents,
+            { role: 'model', parts: [fcPart] },
+            { role: 'user', parts: [{ functionResponse: { name, response: { result: toolResult } } }] }
+          ];
+          round++;
+          continue;
+        }
+
+        throw new Error('No content or function call in API response.');
+      }
 
       setBuildStatus('Parsing response...');
-      const data = await response.json();
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!generatedText) throw new Error("No content generated by the API.");
-
       const fileRegex = /<file\s+name="([^"]+)">([\s\S]*?)<\/file>/g;
       let match;
       while ((match = fileRegex.exec(generatedText)) !== null) {

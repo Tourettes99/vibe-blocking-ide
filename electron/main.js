@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import util from 'util';
 import crypto from 'crypto';
 import { createRequire } from 'module';
@@ -798,6 +798,100 @@ ipcMain.handle('read-all-skills', async () => {
   }
 });
 
+// --- Invoke MCP tool (for structured tool-calling during build) ---
+
+ipcMain.handle('invoke-mcp-tool', async (_event, { serverPath, serverCommand, toolName, args }) => {
+  return new Promise((resolve) => {
+    const parts = serverCommand.replace(/\s+/g, ' ').trim().split(' ');
+    const cmd = parts[0];
+    const cmdArgs = parts.slice(1);
+    const proc = spawn(cmd, cmdArgs.length ? cmdArgs : [], {
+      cwd: serverPath,
+      shell: process.platform === 'win32',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let buffer = '';
+    let initialized = false;
+    let resolved = false;
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill('SIGTERM');
+        resolve({ success: false, error: 'MCP tool call timed out (30s)' });
+      }
+    }, 30000);
+
+    const finish = (result) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        proc.kill('SIGTERM');
+        resolve(result);
+      }
+    };
+
+    proc.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.id === 1 && msg.result) {
+            initialized = true;
+            const initNotif = JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'notifications/initialized'
+            }) + '\n';
+            proc.stdin.write(initNotif);
+            const callReq = JSON.stringify({
+              jsonrpc: '2.0',
+              id: 2,
+              method: 'tools/call',
+              params: { name: toolName, arguments: args || {} }
+            }) + '\n';
+            proc.stdin.write(callReq);
+            continue;
+          }
+          if (msg.id === 2) {
+            if (msg.result) {
+              const content = msg.result.content;
+              const text = Array.isArray(content)
+                ? content.map((c) => (c.type === 'text' ? c.text : '')).join('')
+                : String(msg.result);
+              finish({ success: true, result: text });
+            } else if (msg.error) {
+              finish({ success: false, error: msg.error.message || JSON.stringify(msg.error) });
+            }
+            return;
+          }
+          if (msg.error) {
+            finish({ success: false, error: msg.error.message || JSON.stringify(msg.error) });
+            return;
+          }
+        } catch {}
+      }
+    });
+
+    proc.stderr.on('data', () => {});
+    proc.on('error', (err) => finish({ success: false, error: err.message }));
+
+    const initReq = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'vibe-blocking-ide', version: '0.0.0' }
+      }
+    }) + '\n';
+    proc.stdin.write(initReq);
+  });
+});
+
 // --- Read MCP server tool details (for build pipeline) ---
 
 ipcMain.handle('read-mcp-details', async () => {
@@ -806,7 +900,7 @@ ipcMain.handle('read-mcp-details', async () => {
     const result = [];
     for (const srv of servers) {
       if (srv.status !== 'installed') continue;
-      const detail = { name: srv.name, command: srv.command, description: '', tools: '', source: '' };
+      const detail = { name: srv.name, path: srv.path, command: srv.command, description: '', tools: '', source: '' };
 
       try {
         const pkgPath = path.join(srv.path, 'package.json');
@@ -846,7 +940,7 @@ ipcMain.handle('read-mcp-details', async () => {
         }
       }
 
-      result.push({ name: detail.name, command: detail.command, description: detail.description, tools: detail.tools });
+      result.push({ name: detail.name, path: detail.path, command: detail.command, description: detail.description, tools: detail.tools });
     }
     return { success: true, servers: result };
   } catch {
