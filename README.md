@@ -127,4 +127,4 @@ Active development. Recent additions:
 
 ## License
 
-Private project — not yet published under an open-source license.
+MIT License — see [LICENSE](LICENSE) for details.
