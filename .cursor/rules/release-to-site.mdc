@@ -1,0 +1,29 @@
+---
+description: After building a new Electron exe release, copy it to the site/ folder for the product page
+alwaysApply: true
+---
+
+# Release Workflow — Update Product Page with New Exe
+
+Whenever a new Electron exe is built (via `npm run build` or electron-builder), the latest installer must be copied to the `site/` folder so the Netlify product page serves the current release.
+
+## Steps after every new build
+
+1. Compress the new exe into a zip using 7-Zip (max compression) and place it in `site/`:
+   ```powershell
+   & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=9 "site\Vibe-Blocking-IDE-Setup.zip" "dist-electron\Vibe Blocking IDE Setup X.X.X.exe"
+   ```
+2. The `site/script.js` download link already points to `Vibe-Blocking-IDE-Setup.zip` — no code change needed.
+3. Remind the user to re-upload the `site/` folder to Netlify (or redeploy) to publish the update.
+
+## File layout
+
+```
+site/
+  index.html
+  style.css
+  script.js
+  paypal-qr.png
+  Vibe-Blocking-IDE-Setup.zip   ← always the latest build (compressed)
+  netlify.toml
+```
