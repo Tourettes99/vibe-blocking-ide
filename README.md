@@ -6,7 +6,7 @@ Built with Electron + React (Vite) and powered by the Google Gemini API.
 
 ## How It Works
 
-Instead of a single prompt box, the app breaks your design intent into **6 color-coded design phases** that map to the real parts of building any application:
+Instead of a single prompt box, the app breaks your design intent into **7 color-coded design phases** that map to the real parts of building any application:
 
 | Phase | Color | What to describe |
 |---|---|---|
@@ -16,16 +16,18 @@ Instead of a single prompt box, the app breaks your design intent into **6 color
 | **Data & Backend** | Green | Data model, APIs, storage, server architecture |
 | **Auth & Users** | Amber | Authentication, roles, permissions, security |
 | **Platform & Config** | Rose | Target platform, performance, deployment strategy |
+| **Project Structure & Folders** | Sky | Folder tree, scaffold command (e.g. `npx create-vite`), optional presets |
 
-You can also add **custom requirement blocks** beyond the 6 core phases for anything else your app needs.
+You can also add **custom requirement blocks** beyond the 7 core phases for anything else your app needs.
 
 When you hit **Build Vibe App**, the prompts are combined into a structured specification and sent to Gemini, which generates all the code files for a working application. Files are saved to `Documents/VibeApps/<ProjectName>/`.
 
 ## Features
 
 ### Vibe Blocks (Main Tab)
-- 6 structured design phase inputs displayed in a 2-column grid
+- 7 structured design phase inputs displayed in a 2-column grid (including Project Structure & Folders)
 - Each phase has a distinct color, icon, description, and placeholder guidance
+- **Project Structure** — Tree editor for folders, presets (React/Vite, Node API, Static Site), freeform description, and scaffold command; whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically on save
 - Optional custom requirement blocks can be added/removed below the grid
 - One-click build sends the full design spec to Gemini and saves generated files
 
@@ -110,19 +112,14 @@ Output goes to `dist-electron/`.
 
 ## Current Status
 
-Active development. Recent additions:
+**v0.2.0** — Active development. Recent additions:
 
+- **Project Structure & Folders** — Tree editor for defining folder structure, presets (React/Vite, Node API, Static Site), freeform description, and scaffold command. Whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically when saving a new project.
 - **Iterative refinement** — After the first build, a refine input appears in the action bar. Describe changes and hit "Refine Build" to send your previous output + edits back to Gemini for an updated generation.
-- **Live preview** — A Preview tab shows generated web apps directly inside the IDE via an inline iframe (`srcdoc`). CSS and JS are inlined automatically. Preview updates after each build or version restore.
-- **MCP & Skills in the build pipeline** — Installed MCP server descriptions and Skill file contents are injected into the Gemini prompt at build time, giving the AI context about available tools and coding guidelines.
+- **Live preview** — A Preview tab shows generated web apps directly inside the IDE via an inline iframe (`srcdoc`). CSS and JS are inlined automatically. **React+JSX** apps supported via Babel standalone and CDN React. Preview updates after each build or version restore.
+- **MCP & Skills in the build pipeline** — Installed MCP server descriptions and Skill file contents are injected into the Gemini prompt at build time. **Structured tool-calling:** Skills via `get_skill(name)`; MCP tools via `call_mcp_tool(server, tool, args)`. The model can invoke installed MCP servers for search, fetch, etc.
 - **Version history** — Every build saves a timestamped snapshot under `.vibe-versions/` in the project folder. A version badge in the action bar opens a history panel where you can view and restore any previous build.
 - **Cross-platform** — App launching uses Electron's `shell.openPath()` instead of Windows-specific commands. Path handling is platform-agnostic.
-
-### Recent improvements
-
-- **Structured tool-calling**: Skills accessible via `get_skill(name)`; MCP tools invoked via `call_mcp_tool(server, tool, args)` during generation
-- **React preview**: Preview tab supports React+JSX apps via Babel standalone and CDN React
-- **MCP integration**: Real MCP tool invocations during build — the model can call installed MCP servers for search, fetch, etc.
 
 ### Remaining limitations
 
