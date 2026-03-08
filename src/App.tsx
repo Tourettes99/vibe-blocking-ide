@@ -1471,7 +1471,12 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
                     type="button"
                     className="btn btn-secondary"
                     onClick={async () => {
-                      const res = await (window as any).electronAPI?.browseFilesForStructure?.();
+                      const api = (window as any).electronAPI;
+                      if (!api?.browseFilesForStructure) {
+                        alert('File picker is not available. Make sure you are running the desktop app.');
+                        return;
+                      }
+                      const res = await api.browseFilesForStructure();
                       if (res?.success && res.files?.length) {
                         setProjectStructureFedFiles((prev) => [
                           ...prev,
@@ -1482,6 +1487,8 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
                             sourceName: f.suggestedPath
                           }))
                         ]);
+                      } else if (res && !res.canceled && res.error) {
+                        alert(`Could not add files: ${res.error}`);
                       }
                     }}
                   >

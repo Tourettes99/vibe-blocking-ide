@@ -216,7 +216,8 @@ ipcMain.handle('load-project', async () => {
 // Browse and read files for Project Structure "feed" feature
 ipcMain.handle('browse-files-for-structure', async () => {
   try {
-    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    const win = BrowserWindow.getFocusedWindow() || mainWindow;
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
       title: 'Select files to feed into project structure',
       defaultPath: app.getPath('documents'),
       properties: ['openFile', 'multiSelections']
@@ -225,12 +226,20 @@ ipcMain.handle('browse-files-for-structure', async () => {
       return { success: false, canceled: true };
     }
     const results = [];
+    const errors = [];
     for (const fp of filePaths) {
-      const content = await fs.readFile(fp, 'utf8');
-      const suggestedPath = path.basename(fp);
-      results.push({ content, suggestedPath, sourcePath: fp });
+      try {
+        const content = await fs.readFile(fp, 'utf8');
+        const suggestedPath = path.basename(fp);
+        results.push({ content, suggestedPath, sourcePath: fp });
+      } catch (readErr) {
+        errors.push(`${path.basename(fp)}: ${readErr.message}`);
+      }
     }
-    return { success: true, files: results };
+    if (results.length === 0) {
+      return { success: false, error: errors.join('; ') || 'Could not read selected files (try code/text files)' };
+    }
+    return { success: true, files: results, skipped: errors.length > 0 ? errors : undefined };
   } catch (err) {
     return { success: false, error: err.message };
   }
