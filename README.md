@@ -112,7 +112,7 @@ Output goes to `dist-electron/`.
 
 ## Current Status
 
-**v0.2.1** — Active development. Recent additions:
+**v0.2.2** — Active development. Recent additions:
 
 - **Project Structure & Folders** — Tree editor for defining folder structure, presets (React/Vite, Node API, Static Site), freeform description, scaffold command, and **feed existing files** (upload files to provide context — the AI extends, modifies, or integrates them). Whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically when saving a new project.
 - **Iterative refinement** — After the first build, a refine input appears in the action bar. Describe changes and hit "Refine Build" to send your previous output + edits back to Gemini for an updated generation.
