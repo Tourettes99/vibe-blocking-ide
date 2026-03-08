@@ -35,7 +35,9 @@ import {
   Key,
   Save,
   FolderTree,
-  Terminal
+  Terminal,
+  Upload,
+  FileCode
 } from 'lucide-react';
 
 interface VibeBlock {
@@ -48,6 +50,13 @@ interface ProjectStructureItem {
   id: string;
   type: 'folder' | 'file';
   path: string;
+}
+
+interface FedFile {
+  id: string;
+  path: string;
+  content: string;
+  sourceName?: string;
 }
 
 const STRUCTURE_PRESETS: { label: string; items: Pick<ProjectStructureItem, 'type' | 'path'>[] }[] = [
@@ -170,6 +179,7 @@ function App() {
   const [projectStructureDescription, setProjectStructureDescription] = useState('');
   const [projectStructureScaffold, setProjectStructureScaffold] = useState('');
   const [projectStructureInput, setProjectStructureInput] = useState('');
+  const [projectStructureFedFiles, setProjectStructureFedFiles] = useState<FedFile[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState('MyAwesomeApp');
   const [projectPath, setProjectPath] = useState('');
@@ -847,7 +857,7 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
         }
       }
 
-      if (projectStructureItems.length > 0 || projectStructureDescription.trim() || projectStructureScaffold.trim()) {
+      if (projectStructureItems.length > 0 || projectStructureDescription.trim() || projectStructureScaffold.trim() || projectStructureFedFiles.length > 0) {
         prompt += `\n## Project Structure (REQUIRED CONTEXT)\n`;
         if (projectStructureItems.length > 0) {
           prompt += `The user requires this folder/file structure. Generate code that fits into these paths:\n`;
@@ -862,6 +872,14 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
         if (projectStructureScaffold.trim()) {
           prompt += `Scaffold command (will run first): ${projectStructureScaffold.trim()}\n`;
           prompt += `If this creates a full project (e.g. create-vite), generate files that extend or customize it. If it only creates folders, generate all code.\n\n`;
+        }
+        if (projectStructureFedFiles.length > 0) {
+          prompt += `\n### Existing File Content (USE AS CONTEXT)\n`;
+          prompt += `The user has provided the following files as reference. Use their content when generating code — extend, modify, or integrate them into the project. Place code in the structure above.\n\n`;
+          for (const fed of projectStructureFedFiles) {
+            const excerpt = fed.content.length > 8000 ? fed.content.slice(0, 8000) + '\n...(truncated)...' : fed.content;
+            prompt += `<file name="${fed.path}">\n${excerpt}\n</file>\n\n`;
+          }
         }
       }
 
@@ -1018,7 +1036,8 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
           projectStructure: {
             items: projectStructureItems,
             description: projectStructureDescription,
-            scaffold: projectStructureScaffold
+            scaffold: projectStructureScaffold,
+            fedFiles: projectStructureFedFiles
           },
           scaffoldCommand: projectStructureScaffold.trim() || undefined
         });
@@ -1112,16 +1131,22 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
             setBlocks(DESIGN_PHASES.map(phase => ({ id: phase.id, prompt: '', editPrompt: '' })));
           }
           if (res.data.projectStructure) {
-            const ps = res.data.projectStructure as { items?: ProjectStructureItem[]; description?: string; scaffold?: string };
+            const ps = res.data.projectStructure as { items?: ProjectStructureItem[]; description?: string; scaffold?: string; fedFiles?: FedFile[] };
             if (ps.items && Array.isArray(ps.items)) {
               setProjectStructureItems(ps.items.map((i) => ({ ...i, id: i.id || `ps-${Date.now()}-${Math.random().toString(36).slice(2)}` })));
             }
             setProjectStructureDescription(ps.description || '');
             setProjectStructureScaffold(ps.scaffold || '');
+            if (ps.fedFiles && Array.isArray(ps.fedFiles)) {
+              setProjectStructureFedFiles(ps.fedFiles.map((f) => ({ ...f, id: f.id || `fed-${Date.now()}-${Math.random().toString(36).slice(2)}` })));
+            } else {
+              setProjectStructureFedFiles([]);
+            }
           } else {
             setProjectStructureItems([]);
             setProjectStructureDescription('');
             setProjectStructureScaffold('');
+            setProjectStructureFedFiles([]);
           }
           if (res.data.path) {
             loadVersions(res.data.path);
@@ -1324,7 +1349,7 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
                   <span className="phase-label" style={{ color: '#0ea5e9' }}>Project Structure &amp; Folders</span>
                 </div>
                 <p className="phase-description">
-                  Define folders and files so your project has proper layout. Gemini uses this as context to place code in the right places. Optional: run a scaffold command first.
+                  Define folders and files so your project has proper layout. Gemini uses this as context to place code in the right places. Optionally: run a scaffold command first, or feed existing files so the AI extends them.
                 </p>
 
                 <div className="structure-presets">
@@ -1433,6 +1458,63 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
                   <div className="structure-scaffold-hint">
                     Only whitelisted commands run: npm create, npx create, mkdir. Runs in project folder before generation.
                   </div>
+                </div>
+
+                <div className="input-group structure-fed-section">
+                  <label className="input-label">
+                    <FileCode size={14} /> Feed existing files (optional)
+                  </label>
+                  <p className="structure-fed-hint">
+                    Upload files to provide existing code as context. Gemini will use these when generating — extend, modify, or integrate them. Path = where the file lives in your project (e.g. <code>src/App.tsx</code>).
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={async () => {
+                      const res = await (window as any).electronAPI?.browseFilesForStructure?.();
+                      if (res?.success && res.files?.length) {
+                        setProjectStructureFedFiles((prev) => [
+                          ...prev,
+                          ...res.files.map((f: { content: string; suggestedPath: string }) => ({
+                            id: `fed-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                            path: f.suggestedPath,
+                            content: f.content,
+                            sourceName: f.suggestedPath
+                          }))
+                        ]);
+                      }
+                    }}
+                  >
+                    <Upload size={14} /> Upload files
+                  </button>
+                  {projectStructureFedFiles.length > 0 && (
+                    <div className="structure-fed-list">
+                      {projectStructureFedFiles.map((fed) => (
+                        <div key={fed.id} className="structure-fed-item">
+                          <input
+                            type="text"
+                            className="styled-input structure-fed-path"
+                            value={fed.path}
+                            onChange={(e) =>
+                              setProjectStructureFedFiles((prev) =>
+                                prev.map((f) => (f.id === fed.id ? { ...f, path: e.target.value } : f))
+                              )
+                            }
+                            placeholder="e.g. src/App.tsx"
+                          />
+                          <span className="structure-fed-size">{fed.content.length.toLocaleString()} chars</span>
+                          <button
+                            type="button"
+                            className="mcp-remove-btn"
+                            onClick={() => setProjectStructureFedFiles((prev) => prev.filter((f) => f.id !== fed.id))}
+                            title="Remove"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1825,6 +1907,7 @@ Output ONLY the raw SKILL.md content. No code fences, no explanation. Start dire
               <div className="action-info">
                 6 Phases{blocks.length > 6 ? ` + ${blocks.length - 6} Custom` : ''}
                 {projectStructureItems.length > 0 && <> &middot; <FolderTree size={12} /> Structure</>}
+                {projectStructureFedFiles.length > 0 && <> &middot; <FileCode size={12} /> {projectStructureFedFiles.length} fed</>}
                 {mcpServers.length > 0 && <> &middot; <Plug size={12} /> {mcpServers.length} MCP</>}
                 {skills.length > 0 && <> &middot; <BookOpen size={12} /> {skills.length} Skill{skills.length > 1 ? 's' : ''}</>}
                 {detectedKeys.length > 0 && (

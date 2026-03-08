@@ -213,6 +213,29 @@ ipcMain.handle('load-project', async () => {
   }
 });
 
+// Browse and read files for Project Structure "feed" feature
+ipcMain.handle('browse-files-for-structure', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select files to feed into project structure',
+      defaultPath: app.getPath('documents'),
+      properties: ['openFile', 'multiSelections']
+    });
+    if (canceled || filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+    const results = [];
+    for (const fp of filePaths) {
+      const content = await fs.readFile(fp, 'utf8');
+      const suggestedPath = path.basename(fp);
+      results.push({ content, suggestedPath, sourcePath: fp });
+    }
+    return { success: true, files: results };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // Run external tool IPC (cross-platform)
 ipcMain.handle('launch-app', async (_event, launchPath) => {
   try {

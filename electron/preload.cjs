@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listVersions: (projectPath) => ipcRenderer.invoke('list-versions', projectPath),
     restoreVersion: (data) => ipcRenderer.invoke('restore-version', data),
     readProjectFiles: (projectPath) => ipcRenderer.invoke('read-project-files', projectPath),
+    browseFilesForStructure: () => ipcRenderer.invoke('browse-files-for-structure'),
     readAllSkills: () => ipcRenderer.invoke('read-all-skills'),
     readMcpDetails: () => ipcRenderer.invoke('read-mcp-details'),
     invokeMcpTool: (data) => ipcRenderer.invoke('invoke-mcp-tool', data),

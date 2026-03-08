@@ -1105,6 +1105,46 @@ input, textarea, select, [contenteditable] {
   opacity: 0.8;
 }
 
+.structure-fed-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--glass-border);
+}
+.structure-fed-hint {
+  font-size: 0.8rem;
+  color: var(--color-cream-dark);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.structure-fed-hint code {
+  font-size: 0.9em;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+.structure-fed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.structure-fed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+.structure-fed-path {
+  flex: 1;
+  font-family: 'Consolas', 'Fira Code', monospace;
+  font-size: 0.85rem;
+}
+.structure-fed-size {
+  font-size: 0.75rem;
+  color: var(--color-cream-dark);
+  white-space: nowrap;
+}
+
 /* Project API Keys */
 .keys-badge {
   background: rgba(255, 183, 77, 0.12);

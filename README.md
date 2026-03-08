@@ -16,7 +16,7 @@ Instead of a single prompt box, the app breaks your design intent into **7 color
 | **Data & Backend** | Green | Data model, APIs, storage, server architecture |
 | **Auth & Users** | Amber | Authentication, roles, permissions, security |
 | **Platform & Config** | Rose | Target platform, performance, deployment strategy |
-| **Project Structure & Folders** | Sky | Folder tree, scaffold command (e.g. `npx create-vite`), optional presets |
+| **Project Structure & Folders** | Sky | Folder tree, scaffold command (e.g. `npx create-vite`), optional presets, feed existing files as context |
 
 You can also add **custom requirement blocks** beyond the 7 core phases for anything else your app needs.
 
@@ -27,7 +27,7 @@ When you hit **Build Vibe App**, the prompts are combined into a structured spec
 ### Vibe Blocks (Main Tab)
 - 7 structured design phase inputs displayed in a 2-column grid (including Project Structure & Folders)
 - Each phase has a distinct color, icon, description, and placeholder guidance
-- **Project Structure** — Tree editor for folders, presets (React/Vite, Node API, Static Site), freeform description, and scaffold command; whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically on save
+- **Project Structure** — Tree editor for folders, presets (React/Vite, Node API, Static Site), freeform description, scaffold command, and **feed existing files** (upload src/config files for the AI to extend); whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically on save
 - Optional custom requirement blocks can be added/removed below the grid
 - One-click build sends the full design spec to Gemini and saves generated files
 
@@ -114,7 +114,7 @@ Output goes to `dist-electron/`.
 
 **v0.2.0** — Active development. Recent additions:
 
-- **Project Structure & Folders** — Tree editor for defining folder structure, presets (React/Vite, Node API, Static Site), freeform description, and scaffold command. Whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically when saving a new project.
+- **Project Structure & Folders** — Tree editor for defining folder structure, presets (React/Vite, Node API, Static Site), freeform description, scaffold command, and **feed existing files** (upload files to provide context — the AI extends, modifies, or integrates them). Whitelisted scaffold commands (`npm create`, `npx create-*`, `mkdir`) run automatically when saving a new project.
 - **Iterative refinement** — After the first build, a refine input appears in the action bar. Describe changes and hit "Refine Build" to send your previous output + edits back to Gemini for an updated generation.
 - **Live preview** — A Preview tab shows generated web apps directly inside the IDE via an inline iframe (`srcdoc`). CSS and JS are inlined automatically. **React+JSX** apps supported via Babel standalone and CDN React. Preview updates after each build or version restore.
 - **MCP & Skills in the build pipeline** — Installed MCP server descriptions and Skill file contents are injected into the Gemini prompt at build time. **Structured tool-calling:** Skills via `get_skill(name)`; MCP tools via `call_mcp_tool(server, tool, args)`. The model can invoke installed MCP servers for search, fetch, etc.
